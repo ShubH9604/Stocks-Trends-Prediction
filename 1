@@ -1,0 +1,20 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import pandas_datareader as data 
+import yfinance as yf
+from IPython.display import display
+
+
+# Set the date range
+start = '2010-01-01'
+end = '2024-01-01'
+
+try:
+    # Fetch data
+    df = yf.download('AAPL', start=start, end=end)
+    
+    # Print the first few rows of the dataframe
+    display(df.tail())
+except Exception as e:
+    print(f"Error occurred: {str(e)}")

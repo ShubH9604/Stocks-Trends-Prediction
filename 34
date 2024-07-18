@@ -1,0 +1,3 @@
+# Making Predictions
+
+y_predicted = model.predict(x_test)

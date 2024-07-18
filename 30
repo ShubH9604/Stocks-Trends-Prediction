@@ -1,0 +1,2 @@
+input_data = scaler.fit_transform(final_df)
+input_data

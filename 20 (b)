@@ -1,0 +1,51 @@
+import numpy as np
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dropout, Dense
+
+# Sample data creation
+# Ensure data_training_array is a NumPy array and contains only numeric values
+# Replace the below line with your actual data
+data_training_array = np.random.rand(2465, 1)
+
+x_train = []
+y_train = []
+
+for i in range(100, data_training_array.shape[0]):
+    x_train.append(data_training_array[i-100: i])
+    y_train.append(data_training_array[i, 0])
+
+# Convert lists to NumPy arrays
+x_train = np.array(x_train)
+y_train = np.array(y_train)
+
+# Check the types of x_train and y_train to ensure they are numeric
+print("x_train type:", x_train.dtype)
+print("y_train type:", y_train.dtype)
+
+# Check the shapes of x_train and y_train
+print("x_train shape:", x_train.shape)  # Expected: (num_samples, timesteps, features)
+print("y_train shape:", y_train.shape)  # Expected: (num_samples,)
+
+# Ensure x_train has the correct shape (num_samples, timesteps, 1)
+if len(x_train.shape) == 2:  # If x_train has shape (num_samples, timesteps)
+    x_train = x_train.reshape((x_train.shape[0], x_train.shape[1], 1))
+
+print("Reshaped x_train shape:", x_train.shape)  # Should be (num_samples, timesteps, 1)
+
+# Build the model
+model = Sequential()
+model.add(LSTM(units=50, activation='relu', return_sequences=True, input_shape=(x_train.shape[1], x_train.shape[2])))
+model.add(Dropout(0.2))
+
+model.add(LSTM(units=60, activation='relu', return_sequences=True))
+model.add(Dropout(0.3))
+
+model.add(LSTM(units=80, activation='relu', return_sequences=True))
+model.add(Dropout(0.4))
+
+model.add(LSTM(units=120, activation='relu'))
+model.add(Dropout(0.5))
+
+model.add(Dense(units=1))
+
+model.summary()  # Check the model summary to ensure it's built correctly

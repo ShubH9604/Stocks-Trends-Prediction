@@ -1,0 +1,122 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import yfinance as yf
+from sklearn.preprocessing import MinMaxScaler
+from keras.models import Sequential, load_model
+from keras.layers import Dense, Dropout, LSTM
+import streamlit as st
+
+# Set the date range
+start = '2010-01-01'
+end = '2024-01-01'
+
+# Streamlit title
+st.title('Stock Trend Prediction')
+
+# User input for stock ticker
+user_input = st.text_input('Enter Stock Ticker', 'AAPL')
+
+# Fetch data
+df = yf.download(user_input, start=start, end=end)
+if df.empty:
+    st.write("Error: Unable to fetch data for the ticker.")
+else:
+    # Display data
+    st.write("Data Preview:")
+    st.write(df.tail())
+
+    # Data preparation
+    df = df.reset_index()
+    df = df.drop(['Date', 'Adj Close'], axis=1)
+
+    # Plotting closing price and moving averages
+    fig, ax = plt.subplots(figsize=(12, 6))
+    ax.plot(df['Close'], label='Close Price')
+
+    # Moving Averages
+    ma100 = df['Close'].rolling(100).mean()
+    ma200 = df['Close'].rolling(200).mean()
+
+    ax.plot(ma100, 'r', label='MA 100')
+    ax.plot(ma200, 'g', label='MA 200')
+
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Price')
+    ax.legend()
+    st.pyplot(fig)
+
+    # Prepare training and testing data
+    data_training = pd.DataFrame(df['Close'][0:int(len(df)*0.70)])
+    data_testing = pd.DataFrame(df['Close'][int(len(df)*0.70):int(len(df))])
+
+    scaler = MinMaxScaler(feature_range=(0, 1))
+    data_training_array = scaler.fit_transform(data_training)
+
+    x_train = []
+    y_train = []
+
+    for i in range(100, data_training_array.shape[0]):
+        x_train.append(data_training_array[i-100: i])
+        y_train.append(data_training_array[i, 0])
+
+    x_train, y_train = np.array(x_train), np.array(y_train)
+
+    # Define the model
+    model = Sequential()
+    model.add(LSTM(units=50, activation='relu', return_sequences=True, input_shape=(x_train.shape[1], 1)))
+    model.add(Dropout(0.2))
+    model.add(LSTM(units=60, activation='relu', return_sequences=True))
+    model.add(Dropout(0.3))
+    model.add(LSTM(units=80, activation='relu', return_sequences=True))
+    model.add(Dropout(0.4))
+    model.add(LSTM(units=120, activation='relu'))
+    model.add(Dropout(0.5))
+    model.add(Dense(units=1))
+
+    model.compile(optimizer='adam', loss='mean_squared_error')
+
+    # Train the model with fewer epochs for faster results
+    model.fit(x_train, y_train, epochs=10, validation_split=0.2, verbose=1)  # Reduced epochs
+
+    # Save the model
+    model.save('keras_stock.h5')
+
+    # Check if the model file exists before loading
+    import os
+    if not os.path.isfile('keras_stock.h5'):
+        st.write("Error: Model file not found.")
+    else:
+        # Load the model
+        model = load_model('keras_stock.h5')
+
+        # Prepare testing data
+        past_100_days = data_training.tail(100)
+        final_df = pd.concat([past_100_days, data_testing], ignore_index=True)
+        input_data = scaler.transform(final_df)
+
+        x_test = []
+        y_test = []
+
+        for i in range(100, input_data.shape[0]):
+            x_test.append(input_data[i-100:i])
+            y_test.append(input_data[i, 0])
+
+        x_test, y_test = np.array(x_test), np.array(y_test)
+
+        # Make predictions
+        y_predicted = model.predict(x_test)
+
+        # Inverse transform predictions and actual values
+        y_predicted = scaler.inverse_transform(np.hstack((np.zeros((y_predicted.shape[0], input_data.shape[1] - 1)), y_predicted)))
+        y_test = scaler.inverse_transform(np.hstack((np.zeros((y_test.shape[0], input_data.shape[1] - 1)), y_test.reshape(-1, 1))))
+
+        # Plot predicted vs actual prices
+        fig, ax = plt.subplots(figsize=(12, 6))
+        ax.plot(y_test, 'b', label='Original Price')
+        ax.plot(y_predicted, 'r', label='Predicted Price')
+
+        ax.set_xlabel('Time')
+        ax.set_ylabel('Price')
+        ax.legend()
+        st.pyplot(fig)
